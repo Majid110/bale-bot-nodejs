@@ -94,6 +94,27 @@ export class BaleBot {
     public setConversation(conversation: Conversation): void {
         this._conversations.push(conversation);
     }
+
+    /**
+     * Delete existing special conversations for given user and add new conversation.
+     * @param userPeerId
+     * @param conversation
+     */
+    public setSpecialConversation(userPeerId: number, conversation: Conversation): void {
+        if (!conversation.isSpecialConversation(userPeerId)) {
+            throw Error("Conversation is not special for user");
+        }
+        // Delete existing user special conversations.
+        this._conversations = this._conversations.filter(x => x.isSpecialConversation(userPeerId) === false);
+
+        this._conversations.push(conversation);
+    }
+	
+	public dropConversation(conversation: Conversation): void {
+        const index = this._conversations.indexOf(conversation);
+        this._conversations.splice(index, 1);
+    }
+	
     public DownloadFile(fileId:string,fileAccessHash:string,fileType:string,file_name:String){
         let This = this;
         return new Promise(function (resolve, reject) {
@@ -182,49 +203,64 @@ export class BaleBot {
     private setOnMessage(): void {
         this._apiConnection.setOnMessage((message: Message, sender: User, receivedMessage: ReceivedMessage) => {
 
-            //Priority order of passing message:
+            // Priority order of passing message:
             //
-            //First priority: active conversations.
-            //Second: start a new conversation
-            //Third: check for hears
+            // First priority: special conversation.
+            // Second priority: active conversations.
+            // Third: start a new conversation
+            // Fourth: check for hears
 
-            //Search for active conversations if any.
-            let activeConv: Conversation = null;
-            for (let conv of this._conversations) {
-                if (conv.isActive(sender)) {
-                    activeConv = conv;
+            // Search for special conversation if any.
+            let specialConv: Conversation = null;
+            for (const conv of this._conversations) {
+                if (conv.isSpecialConversation(sender.id)) {
+                    specialConv = conv;
                     break;
                 }
             }
 
-            if (activeConv != null) {
-                //An active bot is already unfinished. So pass the message to it to handle.
-                activeConv.handleMessage(this, message, sender, receivedMessage);
+            if (specialConv !== null) {
+                specialConv.handleMessage(this, message, sender, receivedMessage);
             } else {
-                //No active conversation. => Priority 2:
-                let anyConvStarted: boolean = false;
+    
+                //Search for active conversations if any.
+                let activeConv: Conversation = null;
                 for (let conv of this._conversations) {
-                    if (conv.canStart(message, sender)) {
-                        conv.handleMessage(this, message, sender, receivedMessage);
-                        anyConvStarted = true;
+                    if (conv.isActive(sender)) {
+                        activeConv = conv;
                         break;
                     }
                 }
-
-                if (!anyConvStarted) {
-                    //No conversation matched the message. => Priority 3.
-                    let anyHearsMatched: boolean = false;
-                    for (let sensitivePack of this._hearsPacks) {
-                        if (sensitivePack.callIfMatches(message, sender, receivedMessage)) {
-                            anyHearsMatched = true;
+    
+                if (activeConv != null) {
+                    //An active bot is already unfinished. So pass the message to it to handle.
+                    activeConv.handleMessage(this, message, sender, receivedMessage);
+                } else {
+                    //No active conversation. => Priority 2:
+                    let anyConvStarted: boolean = false;
+                    for (let conv of this._conversations) {
+                        if (conv.canStart(message, sender)) {
+                            conv.handleMessage(this, message, sender, receivedMessage);
+                            anyConvStarted = true;
                             break;
                         }
                     }
-
-                    if (!anyHearsMatched) {
-                        if (this._defaultCallback != null) {
-                            //Default action
-                            this._defaultCallback(message, new Responder(this, sender), receivedMessage);
+    
+                    if (!anyConvStarted) {
+                        //No conversation matched the message. => Priority 3.
+                        let anyHearsMatched: boolean = false;
+                        for (let sensitivePack of this._hearsPacks) {
+                            if (sensitivePack.callIfMatches(message, sender, receivedMessage)) {
+                                anyHearsMatched = true;
+                                break;
+                            }
+                        }
+    
+                        if (!anyHearsMatched) {
+                            if (this._defaultCallback != null) {
+                                //Default action
+                                this._defaultCallback(message, new Responder(this, sender), receivedMessage);
+                            }
                         }
                     }
                 }

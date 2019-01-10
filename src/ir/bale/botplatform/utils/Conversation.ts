@@ -4,6 +4,7 @@ import {TextMessageSensitive} from "./sensitive/TextMessageSensitive";
 import {User} from "../models/User";
 import {Sensitive} from "./sensitive/Sensitive";
 import {ReceivedMessage} from "../models/serverMessages/ReceivedMessage";
+import { userInfo } from "os";
 /**
  * A class to handle conversation concept in the platform.
  *
@@ -20,8 +21,18 @@ export class Conversation {
 
     private sessions: Array<Session>;
 
+    private userPeerId: number;
+
     public constructor() {
         this.sessions = [];
+    }
+
+    /**
+     * Make this conversation special for given user
+     * @param userPeerId 
+     */
+    public makeSpecial(userPeerId: number): void {
+        this.userPeerId = userPeerId;
     }
 
     /**
@@ -91,6 +102,17 @@ export class Conversation {
         if (!this.sessions[peer.id])
             return false;
         return this.sessions[peer.id].currentState != Session.PRE_START_STATE;
+    }
+
+    /**
+     * Check whether conversation is special or not.
+     * @param userPeerId 
+     */
+    public isSpecialConversation(userPeerId: number) : boolean {
+        if (this.userPeerId === -1) {
+            return false;
+        }
+        return this.userPeerId === userPeerId;
     }
 }
 
