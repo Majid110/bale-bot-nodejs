@@ -15,6 +15,7 @@ export class Conversation {
     private tracer: Tracer;
 
     private startSensitive: Sensitive;
+    private startSensitives: Sensitive[];
 
     private cancelSensitive: Sensitive;
     private cancelCallback: (message: Message, session: Session, responser: Responder, receivedMessage: ReceivedMessage) => void;
@@ -45,6 +46,12 @@ export class Conversation {
         return this.tracer = new Tracer();
     }
 
+    public startsWithSensitives(sensitives: Sensitive[]): Tracer {
+        this.startSensitives = sensitives;
+        return this.tracer = new Tracer();
+    }
+
+
     /**
      * Determines when a conversation should stop. This is optional.
      * @example
@@ -63,10 +70,18 @@ export class Conversation {
      * @return {boolean} True if the given message matches with the conversation startSensitive. Note that it returns false if the conversation has already been started no matter the message matches or not.
      */
     public canStart(message: Message, sender: User): boolean {
-        if (this.startSensitive.match(message) && !this.isActive(sender))
-            return true;
-        else
+        if (this.startSensitive) {
+            if (this.startSensitive.match(message) && !this.isActive(sender))
+                return true;
+            else
+                return false;
+        } else {
+            for (let i = 0; i < this.startSensitives.length; i++) {
+                if (this.startSensitives[i].match(message))
+                    return true;
+            }
             return false;
+        }
     }
 
     public handleMessage(bot: BaleBot, message: Message, sender: User, receivedMessage: ReceivedMessage): void {
@@ -109,7 +124,7 @@ export class Conversation {
      * @param userPeerId 
      */
     public isSpecialConversation(userPeerId: number) : boolean {
-        if (this.userPeerId === -1) {
+        if (this.userPeerId === undefined) {
             return false;
         }
         return this.userPeerId === userPeerId;
