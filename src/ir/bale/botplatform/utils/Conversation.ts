@@ -70,6 +70,9 @@ export class Conversation {
      * @return {boolean} True if the given message matches with the conversation startSensitive. Note that it returns false if the conversation has already been started no matter the message matches or not.
      */
     public canStart(message: Message, sender: User): boolean {
+        if (!this.isPublicConversation() && !this.isSpecialConversation(sender.id)) {
+            return false;
+        }
         if (this.startSensitive) {
             if (this.startSensitive.match(message) && !this.isActive(sender))
                 return true;
@@ -128,6 +131,13 @@ export class Conversation {
             return false;
         }
         return this.userPeerId === userPeerId;
+    }
+
+    /**
+     * Check whether conversation is public or not.
+     */
+    public isPublicConversation() : boolean {
+        return this.userPeerId === undefined
     }
 }
 
